@@ -1,84 +1,23 @@
-name: CI/CD Deploy
-
-# Se activa solo cuando hay push en la rama deploy
-on:
-  push:
-    branches:
-      - deploy
-
-jobs:
-  # JOB 1: construir y publicar imagen del backend
-  build-backend:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clonar repositorio
-        uses: actions/checkout@v3
-
-      - name: Login a Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build y push imagen backend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-backend:latest
-
-      - name: Deploy backend en EC2
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_BACKEND_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-backend:latest
-            docker stop innovatech-backend || true
-            docker rm innovatech-backend || true
-            docker run -d \
-              --name innovatech-backend \
-              -p 3001:3001 \
-              -e DB_HOST=${{ secrets.DB_HOST }} \
-              -e DB_PORT=3306 \
-              -e DB_NAME=${{ secrets.MYSQL_DATABASE }} \
-              -e DB_USER=${{ secrets.MYSQL_USER }} \
-              -e DB_PASSWORD=${{ secrets.MYSQL_PASSWORD }} \
-              -e CORS_ORIGIN=${{ secrets.CORS_ORIGIN }} \
-              ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-backend:latest
-
-  # JOB 2: construir y publicar imagen del frontend
-  build-frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clonar repositorio
-        uses: actions/checkout@v3
-
-      - name: Login a Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build y push imagen frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-frontend:latest
-
-      - name: Deploy frontend en EC2
+- name: Deploy backend en EC2
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_FRONTEND_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
+          proxy_host: ${{ secrets.EC2_FRONTEND_HOST }}
           script: |
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-frontend:latest
-            docker stop innovatech-frontend || true
-            docker rm innovatech-frontend || true
-            docker run -d \
-              --name innovatech-frontend \
-              -p 80:80 \
-              ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-frontend:latest
+            ssh -i ~/labsuser.pem -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_BACKEND_HOST }} "
+              docker pull ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-backend:latest
+              docker stop innovatech-backend || true
+              docker rm innovatech-backend || true
+              docker run -d \
+                --name innovatech-backend \
+                -p 3001:3001 \
+                -e DB_HOST=${{ secrets.DB_HOST }} \
+                -e DB_PORT=3306 \
+                -e DB_NAME=${{ secrets.MYSQL_DATABASE }} \
+                -e DB_USER=${{ secrets.MYSQL_USER }} \
+                -e DB_PASSWORD=${{ secrets.MYSQL_PASSWORD }} \
+                -e CORS_ORIGIN=${{ secrets.CORS_ORIGIN }} \
+                ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-backend:latest
+            "
