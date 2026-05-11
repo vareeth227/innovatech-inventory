@@ -1,302 +1,87 @@
-# Innovatech Inventory Desk
+# Innovatech Inventory
 
-Proyecto base para una evaluacion de DevOps con arquitectura de 3 capas:
+Aplicación de gestión de inventario y tickets para Innovatech Chile.
 
-- `frontend`: aplicacion React para gestion de inventario y tickets.
-- `backend`: API REST en Node.js + Express.
-- `bd`: capa de base de datos MySQL con scripts de inicializacion.
+## Arquitectura
 
-La solucion esta pensada para un escenario "on-premise" que luego debe ser llevado a AWS con tres instancias EC2:
+- **Frontend**: React + Vite → EC2 pública (puerto 80)
+- **Backend**: Node.js + Express → EC2 privada (puerto 3001)
+- **Base de datos**: MySQL 8.0 → EC2 privada (puerto 3306)
 
-- EC2 Frontend en subred publica.
-- EC2 Backend en subred privada.
-- EC2 Base de datos en subred privada.
+## Requisitos
 
-La separacion en carpetas busca que cada capa pueda tener su propia estrategia de contenerizacion y su propio `Dockerfile`.
+- Docker Desktop
+- Docker Compose
+- Git
 
-## Regla de despliegue esperada
+## Levantar localmente
 
-La solucion debe separarse en tres capas independientes:
+1. Clonar el repositorio:
 
-- `frontend`: una instancia EC2 publica.
-- `backend`: una instancia EC2 privada.
-- `bd`: una instancia EC2 privada.
-
-Cada carpeta representa una capa del sistema. Se espera que cada capa pueda contenerizarse de manera independiente y que la solucion final respete esta separacion al desplegarse en AWS.
-
-## Contexto del caso
-
-Innovatech Chile necesita una aplicacion interna sencilla para:
-
-- registrar productos de inventario.
-- consultar stock disponible.
-- crear tickets de soporte relacionados a productos o incidencias internas.
-- actualizar estado y prioridad de tickets.
-
-La aplicacion esta funcional pero incompleta desde el punto de vista DevOps. El equipo debe tomar esta base y prepararla para ejecucion containerizada, despliegue automatizado y operacion en AWS.
-
-## Estructura del repositorio
-
-```text
-.
-|-- README.md
-|-- bd
-|   |-- .env.example
-|   |-- README.md
-|   |-- schema.sql
-|   `-- seed.sql
-|-- backend
-|   |-- .env.example
-|   |-- package.json
-|   `-- src
-`-- frontend
-    |-- .env.example
-    |-- index.html
-    |-- package.json
-    |-- vite.config.js
-    `-- src
+```bash
+git clone https://github.com/vareeth227/innovatech-inventory.git
+cd innovatech-inventory
 ```
 
-## Que incluye esta base
+2. Crear archivo de variables de entorno:
 
-- codigo fuente del frontend.
-- codigo fuente del backend.
-- carpeta `bd` separada para representar la tercera capa.
-- scripts SQL para crear esquema y datos iniciales.
-- variables de entorno de ejemplo.
-- README con guia de trabajo.
+```bash
+cp .env.example .env
+```
 
-## Que NO incluye a proposito
+3. Levantar todos los servicios:
 
-Esto queda como trabajo del estudiante:
+```bash
+docker-compose up --build
+```
 
-- `Dockerfile` para `frontend`.
-- `Dockerfile` para `backend`.
-- estrategia de contenerizacion para `bd`.
-- `docker-compose.yml`.
-- workflows de GitHub Actions.
-- despliegue en EC2.
-- configuracion final de secretos.
-- versionado Git y estrategia de ramas.
+4. Abrir en el navegador:
 
-## Arquitectura esperada en AWS
-
-### Frontend
-
-- desplegado en una EC2 publica.
-- accesible por IP publica o DNS.
-- consume la API del backend por variable de entorno.
-
-### Backend
-
-- desplegado en una EC2 privada.
-- no deberia quedar expuesto a Internet.
-- acepta trafico solo desde frontend.
-
-### Base de datos
-
-- desplegada en una EC2 privada.
-- acepta conexiones solo desde backend.
-- debe demostrar persistencia tras reinicio.
-
-## Requerimientos funcionales
-
-### Inventario
-
-- listar productos.
-- crear productos.
-- editar nombre, categoria, stock y ubicacion.
-- eliminar productos.
-- marcar productos con stock bajo.
-
-### Tickets
-
-- listar tickets.
-- crear tickets.
-- asociar ticket a un producto opcionalmente.
-- editar prioridad y estado.
-- eliminar tickets.
-
-### Resumen operacional
-
-La interfaz muestra:
-
-- cantidad total de productos.
-- cantidad total de tickets.
-- cantidad de productos con stock bajo.
-- cantidad de tickets abiertos.
+- Frontend: http://localhost
+- Backend: http://localhost:3001/health
 
 ## Variables de entorno
 
-### Frontend
+| Variable              | Descripción                |
+| --------------------- | -------------------------- |
+| `MYSQL_DATABASE`      | Nombre de la base de datos |
+| `MYSQL_USER`          | Usuario de MySQL           |
+| `MYSQL_PASSWORD`      | Contraseña de MySQL        |
+| `MYSQL_ROOT_PASSWORD` | Contraseña root de MySQL   |
+| `CORS_ORIGIN`         | URL del frontend permitida |
+| `VITE_API_URL`        | URL del backend            |
 
-Archivo base: [frontend/.env.example](/D:/proyectos/duoc/devops/frontend/.env.example)
+## Persistencia
 
-```env
-VITE_API_URL=http://localhost:3001
-```
+Se usa **named volume** (`mysql_data`) para MySQL. Los datos persisten al reiniciar contenedores porque el volumen vive fuera del contenedor en el host de Docker.
 
-### Backend
+## Pipeline CI/CD
 
-Archivo base: [backend/.env.example](/D:/proyectos/duoc/devops/backend/.env.example)
-
-- `PORT`
-- `DB_HOST`
-- `DB_PORT`
-- `DB_NAME`
-- `DB_USER`
-- `DB_PASSWORD`
-- `CORS_ORIGIN`
-
-### Base de datos
-
-Archivo base: [bd/.env.example](/D:/proyectos/duoc/devops/bd/.env.example)
-
-- `MYSQL_DATABASE`
-- `MYSQL_USER`
-- `MYSQL_PASSWORD`
-- `MYSQL_ROOT_PASSWORD`
-
-## Preparacion local sugerida
-
-### 1. Base de datos
-
-Crear una base de datos MySQL:
-
-```sql
-CREATE DATABASE innovatech_ops;
-```
-
-Luego ejecutar:
-
-- [bd/schema.sql](/D:/proyectos/duoc/devops/bd/schema.sql)
-- [bd/seed.sql](/D:/proyectos/duoc/devops/bd/seed.sql)
-
-### 2. Backend
+El pipeline se activa con push en la rama `deploy`:
 
 ```bash
-cd backend
-npm install
-npm run dev
+git checkout deploy
+git merge main
+git push origin deploy
 ```
 
-### 3. Frontend
+Esto ejecuta automáticamente:
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+1. Build de imágenes Docker
+2. Push a Docker Hub
+3. Deploy en EC2 correspondiente
 
-## Trabajo esperado del estudiante
+## Secrets requeridos en GitHub
 
-1. Crear un `Dockerfile` para `frontend`.
-2. Crear un `Dockerfile` para `backend`.
-3. Resolver la contenerizacion de `bd` como tercera capa.
-4. Crear `docker-compose.yml` para levantar la solucion completa.
-5. Definir volumenes para persistencia.
-6. Justificar el uso de `bind mount` o `named volume`.
-7. Publicar imagenes en ECR o Docker Hub.
-8. Implementar GitHub Actions.
-9. Automatizar despliegue hacia EC2 usando la rama `deploy`.
-10. Documentar secretos, variables y pasos de operacion.
-
-## Guia de trabajo sugerida para estudiantes
-
-### Etapa 1: entender la solucion
-
-Antes de contenerizar, la dupla deberia identificar:
-
-- que hace el frontend.
-- que endpoints consume.
-- que variables necesita el backend.
-- como se conecta el backend a MySQL.
-- que papel cumple la carpeta `bd`.
-
-### Etapa 2: preparar contenedores
-
-Se espera que construyan:
-
-- un `Dockerfile` para el frontend.
-- un `Dockerfile` para el backend.
-- una estrategia clara para la carpeta `bd`.
-- un `docker-compose.yml` para ambiente integrado.
-
-Al menos deberian resolver:
-
-- instalacion de dependencias.
-- build del frontend.
-- exposicion de puertos.
-- variables de entorno.
-- orden logico de servicios.
-
-### Etapa 3: persistencia
-
-La pauta pone mucho foco aqui, asi que deberian demostrar:
-
-- que servicio necesita persistencia.
-- que volumen usaron.
-- por que eligieron `bind mount` o `named volume`.
-- como comprueban que los datos permanecen tras reiniciar contenedores.
-
-Sugerencia: para este caso, la persistencia principal deberia estar en MySQL.
-
-### Etapa 4: despliegue en EC2
-
-La solucion final deberia respetar esta topologia:
-
-- frontend en EC2 publica.
-- backend en EC2 privada.
-- base de datos en EC2 privada.
-
-Y ademas demostrar:
-
-- que el frontend accede al backend.
-- que el backend accede a MySQL.
-- que el frontend no accede directamente a la base de datos.
-
-### Etapa 5: pipeline CI/CD
-
-Cada componente que corresponda debe automatizar:
-
-1. build de imagen.
-2. push a registry.
-3. deploy en la EC2 correspondiente.
-
-El trigger esperado por la pauta es un push sobre la rama `deploy`.
-
-## Checklist de entrega
-
-- aplicacion funcional en navegador.
-- backend funcional con conexion real a MySQL.
-- separacion visible entre `frontend`, `backend` y `bd`.
-- Dockerfiles presentes y documentados.
-- `docker-compose.yml` funcional.
-- persistencia demostrable.
-- workflow de GitHub Actions implementado.
-- uso de secrets para credenciales.
-- despliegue hacia EC2 automatizado.
-- README claro y suficiente para reproducir el flujo.
-
-## Minimos esperados
-
-Para considerar la solucion completa, la dupla debe demostrar:
-
-- frontend funcionando desde la EC2 publica.
-- backend funcionando en EC2 privada y respondiendo al frontend.
-- base de datos funcionando en EC2 privada.
-- persistencia de datos tras reiniciar contenedores.
-- despliegue automatizado mediante GitHub Actions.
-
-## Recomendacion para video
-
-Conviene pedir que muestren:
-
-1. estructura del proyecto con tres carpetas.
-2. Dockerfiles y `docker-compose.yml`.
-3. volumenes configurados.
-4. workflow de GitHub Actions.
-5. push a rama `deploy`.
-6. estado de contenedores en EC2.
-7. prueba funcional desde navegador.
-8. evidencia de persistencia.
+| Secret               | Descripción                  |
+| -------------------- | ---------------------------- |
+| `DOCKERHUB_USERNAME` | Usuario Docker Hub           |
+| `DOCKERHUB_TOKEN`    | Token Docker Hub             |
+| `EC2_FRONTEND_HOST`  | IP pública EC2 frontend      |
+| `EC2_BACKEND_HOST`   | IP pública EC2 backend       |
+| `EC2_SSH_KEY`        | Clave SSH privada EC2        |
+| `DB_HOST`            | IP privada EC2 base de datos |
+| `MYSQL_DATABASE`     | Nombre base de datos         |
+| `MYSQL_USER`         | Usuario base de datos        |
+| `MYSQL_PASSWORD`     | Contraseña base de datos     |
+| `CORS_ORIGIN`        | URL pública del frontend     |
