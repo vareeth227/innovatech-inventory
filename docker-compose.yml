@@ -1,0 +1,63 @@
+services:
+  # Servicio de base de datos MySQL
+  bd:
+    image: mysql:8.0
+    container_name: innovatech-bd
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    # Volumen nombrado para persistencia de datos
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./bd/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./bd/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    networks:
+      - innovatech-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 5
+
+  # Servicio backend Node.js
+  backend:
+    build: ./backend
+    container_name: innovatech-backend
+    environment:
+      PORT: 3001
+      DB_HOST: bd
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+    ports:
+      - "3001:3001"
+    depends_on:
+      bd:
+        condition: service_healthy
+    networks:
+      - innovatech-net
+
+  # Servicio frontend React
+  frontend:
+    build: ./frontend
+    container_name: innovatech-frontend
+    environment:
+      VITE_API_URL: ${VITE_API_URL}
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - innovatech-net
+
+# Volumen nombrado para MySQL (datos persisten al reiniciar)
+volumes:
+  mysql_data:
+
+# Red interna entre servicios
+networks:
+  innovatech-net:
+    driver: bridge

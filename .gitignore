@@ -1,0 +1,8 @@
+# Variables de entorno con credenciales
+.env
+
+# Dependencias
+node_modules/
+
+# Build del frontend
+dist/
