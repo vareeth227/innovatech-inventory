@@ -6,6 +6,9 @@ COPY package.json .
 RUN npm install
 # Copia el código fuente
 COPY . .
+# Recibe la variable en tiempo de build desde GitHub Actions
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 # Construye la app para producción
 RUN npm run build
 
