@@ -1,61 +1,14 @@
-# Innovatech Inventory
+## EP3 - Orquestación con ECS Fargate
 
-Aplicación de gestión de inventario y tickets para Innovatech Chile.
+### Arquitectura AWS
 
-## Arquitectura
+- **Cluster ECS:** `innovatech-cluster` (Fargate)
+- **Frontend:** servicio ECS con ALB público `innovatech-alb-617625291.us-east-1.elb.amazonaws.com`
+- **Backend:** servicio ECS con ALB interno `innovatech-backend-alb-17953016.us-east-1.elb.amazonaws.com:3001`
+- **Base de datos:** RDS MySQL `innovatech-db.cetrfq3r5lka.us-east-1.rds.amazonaws.com`
+- **Registro de imágenes:** ECR `691996033181.dkr.ecr.us-east-1.amazonaws.com`
 
-- **Frontend**: React + Vite → EC2 pública (puerto 80)
-- **Backend**: Node.js + Express → EC2 privada (puerto 3001)
-- **Base de datos**: MySQL 8.0 → EC2 privada (puerto 3306)
-
-## Requisitos
-
-- Docker Desktop
-- Docker Compose
-- Git
-
-## Levantar localmente
-
-1. Clonar el repositorio:
-
-```bash
-git clone https://github.com/vareeth227/innovatech-inventory.git
-cd innovatech-inventory
-```
-
-2. Crear archivo de variables de entorno:
-
-```bash
-cp .env.example .env
-```
-
-3. Levantar todos los servicios:
-
-```bash
-docker-compose up --build
-```
-
-4. Abrir en el navegador:
-
-- Frontend: http://localhost
-- Backend: http://localhost:3001/health
-
-## Variables de entorno
-
-| Variable              | Descripción                |
-| --------------------- | -------------------------- |
-| `MYSQL_DATABASE`      | Nombre de la base de datos |
-| `MYSQL_USER`          | Usuario de MySQL           |
-| `MYSQL_PASSWORD`      | Contraseña de MySQL        |
-| `MYSQL_ROOT_PASSWORD` | Contraseña root de MySQL   |
-| `CORS_ORIGIN`         | URL del frontend permitida |
-| `VITE_API_URL`        | URL del backend            |
-
-## Persistencia
-
-Se usa **named volume** (`mysql_data`) para MySQL. Los datos persisten al reiniciar contenedores porque el volumen vive fuera del contenedor en el host de Docker.
-
-## Pipeline CI/CD
+### Pipeline CI/CD
 
 El pipeline se activa con push en la rama `deploy`:
 
@@ -67,21 +20,17 @@ git push origin deploy
 
 Esto ejecuta automáticamente:
 
-1. Build de imágenes Docker
-2. Push a Docker Hub
-3. Deploy en EC2 correspondiente
+1. Login a ECR con credenciales AWS
+2. Build de imagen Docker con variables de entorno
+3. Push a ECR
+4. Force new deployment en ECS
 
-## Secrets requeridos en GitHub
+### Secrets requeridos en GitHub
 
-| Secret               | Descripción                  |
-| -------------------- | ---------------------------- |
-| `DOCKERHUB_USERNAME` | Usuario Docker Hub           |
-| `DOCKERHUB_TOKEN`    | Token Docker Hub             |
-| `EC2_FRONTEND_HOST`  | IP pública EC2 frontend      |
-| `EC2_BACKEND_HOST`   | IP pública EC2 backend       |
-| `EC2_SSH_KEY`        | Clave SSH privada EC2        |
-| `DB_HOST`            | IP privada EC2 base de datos |
-| `MYSQL_DATABASE`     | Nombre base de datos         |
-| `MYSQL_USER`         | Usuario base de datos        |
-| `MYSQL_PASSWORD`     | Contraseña base de datos     |
-| `CORS_ORIGIN`        | URL pública del frontend     |
+| Secret                  | Descripción                 |
+| ----------------------- | --------------------------- |
+| `AWS_ACCESS_KEY_ID`     | Credencial AWS              |
+| `AWS_SECRET_ACCESS_KEY` | Credencial AWS              |
+| `AWS_SESSION_TOKEN`     | Token de sesión AWS Academy |
+| `ECR_REGISTRY`          | URL del registro ECR        |
+| `VITE_API_URL`          | URL del ALB del backend     |
