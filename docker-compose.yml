@@ -20,7 +20,6 @@ services:
       interval: 10s
       retries: 5
 
-  # Servicio backend Node.js
   backend:
     build: ./backend
     container_name: innovatech-backend
@@ -40,7 +39,6 @@ services:
     networks:
       - innovatech-net
 
-  # Servicio frontend React
   frontend:
     build: ./frontend
     container_name: innovatech-frontend
@@ -57,7 +55,6 @@ services:
 volumes:
   mysql_data:
 
-# Red interna entre servicios
 networks:
   innovatech-net:
     driver: bridge

@@ -20,6 +20,11 @@ app.get("/health", async (_request, response) => {
   }
 });
 
+// Ruta raíz para health check del ALB
+app.get("/", (_request, response) => {
+  response.json({ status: "ok" });
+});
+
 app.get("/api/dashboard", async (_request, response, next) => {
   try {
     const [[itemTotals]] = await pool.query(

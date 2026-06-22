@@ -1,4 +1,4 @@
-name: CI/CD Deploy
+name: CI/CD Deploy ECS
 
 on:
   push:
@@ -12,29 +12,31 @@ jobs:
       - name: Clonar repositorio
         uses: actions/checkout@v3
 
-      - name: Login a Docker Hub
-        uses: docker/login-action@v3
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Login a ECR
+        uses: aws-actions/amazon-ecr-login@v1
 
       - name: Build y push imagen backend
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-backend:latest
+          tags: ${{ secrets.ECR_REGISTRY }}/innovatech-backend:latest
 
-      - name: Deploy backend en EC2
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_FRONTEND_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-backend:latest
-            docker save ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-backend:latest | ssh -i ~/labsuser.pem -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_BACKEND_HOST }} 'docker load'
-            ssh -i ~/labsuser.pem -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_BACKEND_HOST }} "docker stop innovatech-backend || true && docker rm innovatech-backend || true && docker run -d --name innovatech-backend -p 3001:3001 -e DB_HOST=${{ secrets.DB_HOST }} -e DB_PORT=3306 -e DB_NAME=${{ secrets.MYSQL_DATABASE }} -e DB_USER=${{ secrets.MYSQL_USER }} -e DB_PASSWORD=${{ secrets.MYSQL_PASSWORD }} -e CORS_ORIGIN=${{ secrets.CORS_ORIGIN }} ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-backend:latest"
+      - name: Deploy backend en ECS
+        run: |
+          aws ecs update-service \
+            --cluster innovatech-cluster \
+            --service backend-service \
+            --force-new-deployment \
+            --region us-east-1
 
   build-frontend:
     runs-on: ubuntu-latest
@@ -42,29 +44,30 @@ jobs:
       - name: Clonar repositorio
         uses: actions/checkout@v3
 
-      - name: Login a Docker Hub
-        uses: docker/login-action@v3
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Login a ECR
+        uses: aws-actions/amazon-ecr-login@v1
 
       - name: Build y push imagen frontend
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-frontend:latest
+          tags: ${{ secrets.ECR_REGISTRY }}/innovatech-frontend:latest
           build-args: |
             VITE_API_URL=${{ secrets.VITE_API_URL }}
 
-      - name: Deploy frontend en EC2
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_FRONTEND_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-frontend:latest
-            docker stop innovatech-frontend || true
-            docker rm innovatech-frontend || true
-            docker run -d --name innovatech-frontend -p 80:80 ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-frontend:latest
+      - name: Deploy frontend en ECS
+        run: |
+          aws ecs update-service \
+            --cluster innovatech-cluster \
+            --service innovatech-frontend-service-8tcy5j81 \
+            --force-new-deployment \
+            --region us-east-1
